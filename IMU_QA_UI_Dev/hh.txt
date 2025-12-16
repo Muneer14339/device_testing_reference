@@ -1,0 +1,19 @@
+authToken	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNjkxYjBmZWNkM2ExMjJhODAzMGExMDI3IiwiZW1haWwiOiJtMTQzNDk2OTFAZ21haWwuY29tIiwidXNlcl90eXBlIjoiY29hY2giLCJleHAiOjE3Njc0NDc0ODd9.82vaEffZMkGZB4Z3WfK3PNkBOf2o9O4i-qrfqT1eTB0
+certification_uploaded	false
+contact_number	92234567890
+email	m14349691@gmail.com
+first_name	mmmm
+is_approved_by_admin	true
+is_verified_by_coach	false
+last_name	mmmm
+userData	{"bio":"","certification_type":["NRA Certified","USCCA","USPSA","IDPA","ISSF","POST Certified","Military Certified","FBI/FLETC Certified","IALEFI","PRS","3-Gun Certified","Thunder Ranch","State CCW/CPL Instructor","Gunsite Academy","Front Sight","Other","State Hunter Safety","SIG Sauer Academy","Steel Challenge","IPSC"],"certification_uploaded":false,"contact_number":"92234567890","country":"Pakistan","email":"m14349691@gmail.com","experience":0,"first_name":"mmmm","is_approved_by_admin":"true","is_verified_by_coach":false,"last_name":"mmmm","specialization":"","specialties":["Reloading and Ammunition Crafting","Scenario-Based Training","Firearms for Disabled Shooters","Military-Style Tactical Drills","Women's Self-Defense and Firearms Training","Long-Range Shooting","Precision Shooting","Competitive Shooting","Concealed Carry (CCW)","Emergency Preparedness and Survival Shooting","Defensive Rifle and Shotgun Training","Law Enforcement and Security Training","Advanced Marksmanship","Home Defense","Tactical Training","Beginner-Friendly Guidance","Hunting Firearms Training","Firearms Maintenance and Gunsmithing","Defensive Handgun Training","Youth Firearms Safety and Training"],"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNjkxYjBmZWNkM2ExMjJhODAzMGExMDI3IiwiZW1haWwiOiJtMTQzNDk2OTFAZ21haWwuY29tIiwidXNlcl90eXBlIjoiY29hY2giLCJleHAiOjE3Njc0NDc0ODd9.82vaEffZMkGZB4Z3WfK3PNkBOf2o9O4i-qrfqT1eTB0","training_philosophy":"","user_id":"691b0fecd3a122a8030a1027","user_type":"coach","username":"mmmm","website":""}
+user_id	691b0fecd3a122a8030a1027
+user_type	coach
+
+
+
+
+ajs_anonymous_id	%224a1b50ed-53a6-45c0-b002-c6e60ba74b67%22	.coachzr.com	/	2026-12-03T07:40:37.000Z	58		✓				Medium
+app-domain	www.coachzr.com	www.coachzr.com	/	2025-12-14T06:46:10.992Z	25			Strict			Medium
+
+
