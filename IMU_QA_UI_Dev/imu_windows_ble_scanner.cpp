@@ -1,5 +1,5 @@
 // ============================================================================
-// imu_windows_ble_scanner.cpp - COMPLETE REPLACEMENT
+// imu_windows_ble_scanner.cpp - UPDATED
 // ============================================================================
 
 #ifdef _WIN32
@@ -29,65 +29,78 @@ std::string address_to_string(uint64_t addr) {
     return oss.str();
 }
 
-std::vector<WinBleDevice> WindowsBleScanner::scan_for(int duration_ms) {
+std::vector<WinBleDevice> WindowsBleScanner::scan_until(int target_count) {
     devices_.clear();
+    found_count_ = 0;
+    should_stop_ = false;
+    
     std::set<uint64_t> seen_addresses;
-    std::set<uint64_t> gmsync_without_name;
+    std::map<uint64_t, std::chrono::steady_clock::time_point> pending_devices;
     
     watcher_ = BluetoothLEAdvertisementWatcher();
     watcher_.ScanningMode(BluetoothLEScanningMode::Active);
     
-    watcher_.Received([this, &seen_addresses, &gmsync_without_name](
+    watcher_.Received([this, &seen_addresses, &pending_devices, target_count](
         BluetoothLEAdvertisementWatcher const&,
         BluetoothLEAdvertisementReceivedEventArgs args) {
+        
+        if (should_stop_ || found_count_ >= target_count) return;
         
         uint64_t addr = args.BluetoothAddress();
         
         std::lock_guard<std::mutex> lock(devices_mutex_);
         if (seen_addresses.count(addr)) return;
         
-        auto localName = args.Advertisement().LocalName();
-        std::string name = winrt::to_string(localName);
-        
-        if (name.find("GMSync") != std::string::npos) {
-            seen_addresses.insert(addr);
-            WinBleDevice device;
-            device.name = name;
-            device.address = address_to_string(addr);
-            device.raw_address = addr;
-            devices_.push_back(device);
-            std::cout << "Found GMSync: " << name << " [" << device.address << "]\n";
-        } else if (name.empty()) {
-            gmsync_without_name.insert(addr);
-        }
+        pending_devices[addr] = std::chrono::steady_clock::now();
     });
     
     watcher_.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(duration_ms));
     
-    std::cout << "Fetching names for devices without LocalName...\n";
-    for (uint64_t addr : gmsync_without_name) {
-        try {
-            auto async_device = BluetoothLEDevice::FromBluetoothAddressAsync(addr);
-            auto device = async_device.get();
+    while (found_count_ < target_count && !should_stop_) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        
+        std::vector<uint64_t> to_check;
+        {
+            std::lock_guard<std::mutex> lock(devices_mutex_);
+            auto now = std::chrono::steady_clock::now();
             
-            if (device) {
-                std::string name = winrt::to_string(device.Name());
-                if (name.find("GMSync") != std::string::npos) {
-                    std::lock_guard<std::mutex> lock(devices_mutex_);
-                    if (!seen_addresses.count(addr)) {
-                        seen_addresses.insert(addr);
-                        WinBleDevice win_dev;
-                        win_dev.name = name;
-                        win_dev.address = address_to_string(addr);
-                        win_dev.raw_address = addr;
-                        devices_.push_back(win_dev);
-                        std::cout << "Found GMSync (via device): " << name << " [" << win_dev.address << "]\n";
-                    }
+            for (auto it = pending_devices.begin(); it != pending_devices.end();) {
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second).count() >= 200) {
+                    to_check.push_back(it->first);
+                    it = pending_devices.erase(it);
+                } else {
+                    ++it;
                 }
-                device.Close();
             }
-        } catch (...) {
+        }
+        
+        for (uint64_t addr : to_check) {
+            if (should_stop_ || found_count_ >= target_count) break;
+            
+            try {
+                auto async_device = BluetoothLEDevice::FromBluetoothAddressAsync(addr);
+                auto device = async_device.get();
+                
+                if (device) {
+                    std::string name = winrt::to_string(device.Name());
+                    
+                    if (name.find("GMSync") != std::string::npos) {
+                        std::lock_guard<std::mutex> lock(devices_mutex_);
+                        if (!seen_addresses.count(addr)) {
+                            seen_addresses.insert(addr);
+                            WinBleDevice win_dev;
+                            win_dev.name = name;
+                            win_dev.address = address_to_string(addr);
+                            win_dev.raw_address = addr;
+                            devices_.push_back(win_dev);
+                            found_count_++;
+                            std::cout << "Found GMSync device " << found_count_ << "/" << target_count 
+                                      << ": " << name << " [" << win_dev.address << "]\n";
+                        }
+                    }
+                    device.Close();
+                }
+            } catch (...) {}
         }
     }
     
@@ -98,6 +111,7 @@ std::vector<WinBleDevice> WindowsBleScanner::scan_for(int duration_ms) {
 }
 
 void WindowsBleScanner::stop() {
+    should_stop_ = true;
     if (watcher_) {
         watcher_.Stop();
         watcher_ = nullptr;

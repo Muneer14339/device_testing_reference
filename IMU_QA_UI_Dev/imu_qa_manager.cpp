@@ -1,5 +1,5 @@
 // ============================================================================
-// imu_qa_manager.cpp - COMPLETE REPLACEMENT
+// imu_qa_manager.cpp - UPDATED
 // ============================================================================
 
 #include "imu_qa_manager.h"
@@ -13,29 +13,28 @@ ImuQaManager::ImuQaManager(const ImuQaConfig& cfg) : cfg_(cfg) {}
 
 bool ImuQaManager::discover_and_connect(int max_devices) {
 #ifdef _WIN32
-    std::cout << "Scanning for GMSync devices (Windows/WinRT)...\n";
+    std::cout << "Scanning for " << max_devices << " GMSync device(s)...\n";
+    std::cout << "Press ESC or Backspace to cancel\n\n";
     
     WindowsBleScanner scanner;
-    auto found_devices = scanner.scan_for(10000);
+    auto found_devices = scanner.scan_until(max_devices);
     
     if (found_devices.empty()) {
-        std::cerr << "No GMSync devices found.\n";
+        std::cerr << "\nNo GMSync devices found.\n";
         return false;
     }
     
-    std::cout << "Found " << found_devices.size() << " GMSync device(s)\n";
+    std::cout << "\nConnecting to devices...\n";
     
     for (const auto& device : found_devices) {
-        if ((int)sessions_.size() >= max_devices) break;
-        
-        std::cout << "Connecting to " << device.name << " [" << device.address << "]\n";
+        std::cout << "Connecting to " << device.name << " [" << device.address << "]... ";
         
         auto session = std::make_unique<ImuDeviceSession>(device.raw_address, device.address);
         if (session->start()) {
             sessions_.push_back(std::move(session));
-            std::cout << "Connected successfully\n";
+            std::cout << "OK\n";
         } else {
-            std::cerr << "Failed to connect\n";
+            std::cerr << "FAILED\n";
         }
     }
     
@@ -54,14 +53,12 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
 
     adapter.set_callback_on_scan_found([&](SimpleBLE::Peripheral p) {
         std::string name = p.identifier();
-        std::cout << "FOUND: " << p.identifier() << " [" << p.address() << "]\n";
         if (name.find("GMSync") == std::string::npos) return;
-
         if ((int)found.size() >= max_devices) return;
+        
         found.push_back(p);
-
-        std::cout << "Found GMSync[" << (found.size()-1)
-                  << "]: " << name << " [" << p.address() << "]\n";
+        std::cout << "Found GMSync device " << found.size() << "/" << max_devices 
+                  << ": " << name << " [" << p.address() << "]\n";
     });
 
     adapter.scan_for(10000);
@@ -83,11 +80,11 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
 #endif
 
     if (sessions_.empty()) {
-        std::cerr << "No sessions started.\n";
+        std::cerr << "\nNo sessions started.\n";
         return false;
     }
 
-    std::cout << "Started " << sessions_.size() << " device session(s).\n";
+    std::cout << "\nStarted " << sessions_.size() << " device session(s).\n";
     return true;
 }
 
@@ -98,7 +95,7 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
     auto settle_end = t0 + std::chrono::duration<double>(cfg_.settle_seconds);
     auto test_end   = settle_end + std::chrono::duration<double>(cfg_.test_seconds);
 
-    std::cout << "Settling for " << cfg_.settle_seconds << "s...\n";
+    std::cout << "\nSettling for " << cfg_.settle_seconds << "s...\n";
     while (clock::now() < settle_end) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

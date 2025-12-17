@@ -1,0 +1,3 @@
+C:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev/build/CMakeFiles/recoil_tracker.dir
+C:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev/build/CMakeFiles/ZERO_CHECK.dir

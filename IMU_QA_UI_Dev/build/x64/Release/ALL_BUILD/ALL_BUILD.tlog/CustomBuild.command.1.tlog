@@ -1,0 +1,10 @@
+^C:\USERS\GM\DESKTOP\NEW\NEWDATA\DEVICES_TESTING\IMU_QA_UI_DEV\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev -BC:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev/build --check-stamp-file C:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
