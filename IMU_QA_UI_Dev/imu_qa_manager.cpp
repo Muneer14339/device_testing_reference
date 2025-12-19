@@ -9,6 +9,48 @@
 #include <thread>
 #include <cmath>
 
+
+static void print_device_summary(
+    const std::string& id,
+    const std::vector<ImuSample>& samples,
+    double test_seconds
+) 
+{
+    std::cout << "\n----------------------------------------\n";
+    std::cout << "Device: " << id << "\n";
+
+    if (samples.empty()) {
+        std::cout << "NO DATA RECEIVED ❌\n";
+        return;
+    }
+
+    size_t total = samples.size();
+    double rate  = total / test_seconds;
+
+    float min_ax = samples[0].ax, max_ax = samples[0].ax;
+    float min_ay = samples[0].ay, max_ay = samples[0].ay;
+    float min_az = samples[0].az, max_az = samples[0].az;
+
+    for (const auto& s : samples) {
+        min_ax = std::min(min_ax, s.ax);
+        max_ax = std::max(max_ax, s.ax);
+
+        min_ay = std::min(min_ay, s.ay);
+        max_ay = std::max(max_ay, s.ay);
+
+        min_az = std::min(min_az, s.az);
+        max_az = std::max(max_az, s.az);
+    }
+
+    std::cout << "Total packets : " << total << "\n";
+    std::cout << "Avg rate      : " << rate << " Hz\n";
+
+    std::cout << "AX min/max    : " << min_ax << " / " << max_ax << "\n";
+    std::cout << "AY min/max    : " << min_ay << " / " << max_ay << "\n";
+    std::cout << "AZ min/max    : " << min_az << " / " << max_az << "\n";
+}
+
+
 ImuQaManager::ImuQaManager(const ImuQaConfig& cfg) : cfg_(cfg) {}
 
 bool ImuQaManager::discover_and_connect(int max_devices) {
@@ -118,6 +160,12 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
     std::vector<ImuQaResult> results;
     for (size_t i = 0; i < sessions_.size(); ++i) {
         auto id = sessions_[i]->id();
+         // ✅ PRINT RAW DATA SUMMARY
+        print_device_summary(
+          id,
+          all_samples[i],
+          cfg_.test_seconds
+        );
         auto res = evaluate_device(id, all_samples[i]);
         results.push_back(res);
         sessions_[i]->stop();
@@ -125,6 +173,7 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
 
     return results;
 }
+
 
 ImuQaResult ImuQaManager::evaluate_device(
     const std::string& id,
