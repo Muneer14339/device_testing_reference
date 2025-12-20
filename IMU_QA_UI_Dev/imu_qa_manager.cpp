@@ -96,44 +96,54 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
     // Per-device sample accumulation
     std::vector<std::vector<ImuSample>> all_samples(sessions_.size());
 
-    // Create a thread for each device to continuously drain samples
-    std::vector<std::thread> threads;
-    for (size_t i = 0; i < sessions_.size(); ++i) {
-        threads.emplace_back([&, i]() {
-            while (clock::now() < test_end) {
-                auto chunk = sessions_[i]->drain_samples();
-                if (!chunk.empty()) {
-                    all_samples[i].insert(all_samples[i].end(), chunk.begin(), chunk.end());
-                    std::cout << "\rDevice " << i << " collected packets: " << all_samples[i].size() << std::flush;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(5)); // frequent polling
-            }
-        });
-    }
+    while (clock::now() < test_end) {
+        for (size_t i = 0; i < sessions_.size(); ++i) {
+            // Grab all available new samples from this device
+            auto chunk = sessions_[i]->drain_samples();
 
-    // Wait for all threads to finish
-    for (auto& th : threads) {
-        if (th.joinable()) th.join();
+            // Append to accumulated samples (do not overwrite)
+            if (!chunk.empty()) {
+                all_samples[i].insert(all_samples[i].end(), chunk.begin(), chunk.end());
+            }
+
+            // Show progress per device
+            std::cout << "\rCollected packets for device " << i 
+                      << ": " << all_samples[i].size() << std::flush;
+        }
+
+        // Poll frequently to avoid losing packets
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     std::cout << "\nTest window ended. Evaluating...\n";
 
+    // Evaluate results for all devices
     std::vector<ImuQaResult> results;
     for (size_t i = 0; i < sessions_.size(); ++i) {
         auto id = sessions_[i]->id();
         auto res = evaluate_device(id, all_samples[i]);
         results.push_back(res);
 
-        // Print session summary
+        // Print session details
         std::cout << "\n=== Device [" << id << "] Session Summary ===\n";
         std::cout << "Total packets collected: " << all_samples[i].size() << "\n";
+
+        int packet_num = 0;
+        for (const auto& s : all_samples[i]) {
+            std::cout << "Packet " << packet_num++ << ": "
+                      << "ax=" << s.ax << ", "
+                      << "ay=" << s.ay << ", "
+                      << "az=" << s.az << ", "
+                      << "gx=" << s.gx << ", "
+                      << "gy=" << s.gy << ", "
+                      << "gz=" << s.gz << "\n";
+        }
 
         sessions_[i]->stop();
     }
 
     return results;
 }
-
 
 ImuQaResult ImuQaManager::evaluate_device(
     const std::string& id,
