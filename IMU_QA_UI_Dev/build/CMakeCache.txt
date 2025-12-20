@@ -231,6 +231,9 @@ recoil_tracker_ble_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 recoil_tracker_ble_SOURCE_DIR:STATIC=C:/Users/GM/Desktop/new/newData/devices_testing/IMU_QA_UI_Dev
 
+//The directory containing a CMake configuration file for simpleble.
+simpleble_DIR:PATH=C:/Users/GM/Desktop/new/newData/devices_testing/vcpkg/installed/x64-windows/share/simpleble
+
 
 ########################
 # INTERNAL cache entries

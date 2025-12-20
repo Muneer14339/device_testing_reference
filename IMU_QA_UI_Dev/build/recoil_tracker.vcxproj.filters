@@ -10,12 +10,6 @@
     <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\imu_qa_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\imu_windows_ble_scanner.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\imu_windows_connection.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\CMakeLists.txt" />

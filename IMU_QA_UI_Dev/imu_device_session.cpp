@@ -1,34 +1,4 @@
-// ============================================================================
-// imu_device_session.cpp - COMPLETE REPLACEMENT
-// ============================================================================
-
 #include "imu_device_session.h"
-
-#ifdef _WIN32
-
-ImuDeviceSession::ImuDeviceSession(uint64_t address, const std::string& id)
-    : id_(id) {
-    connection_ = std::make_unique<WindowsImuConnection>(address, id);
-}
-
-ImuDeviceSession::~ImuDeviceSession() {
-    stop();
-}
-
-bool ImuDeviceSession::start() {
-    return connection_->start();
-}
-
-void ImuDeviceSession::stop() {
-    connection_->stop();
-}
-
-std::vector<ImuSample> ImuDeviceSession::drain_samples() {
-    return connection_->drain_samples();
-}
-
-#else
-
 #include <chrono>
 #include <iostream>
 
@@ -64,6 +34,7 @@ bool ImuDeviceSession::start() {
                        "0000b3a1-0000-1000-8000-00805f9b34fb",
                        cb);
 
+    // enable accel + gyro
     send_cmd(0x08, 0x00, {});
     send_cmd(0x0A, 0x00, {});
 
@@ -76,6 +47,7 @@ void ImuDeviceSession::stop() {
     running_ = false;
 
     try {
+        // stop all sensors
         send_cmd(0xF0, 0x00, {});
     } catch (...) {}
 
@@ -118,18 +90,19 @@ void ImuDeviceSession::on_notify(SimpleBLE::ByteArray bytes) {
     int16_t ry = be16(p + 2);
     int16_t rz = be16(p + 4);
 
+    static thread_local double last_t = 0.0;
     double t = std::chrono::duration<double>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 
     ImuSample s{};
     s.timestamp_s = t;
-    s.temp = 0.0f;
+    s.temp = 0.0f; // device doesn’t expose temp in this frame
 
-    if (cmd == 0x08) {
+    if (cmd == 0x08) { // accel
         s.ax = 16.0f * rx / 32768.0f;
         s.ay = 16.0f * ry / 32768.0f;
         s.az = 16.0f * rz / 32768.0f;
-    } else if (cmd == 0x0A) {
+    } else if (cmd == 0x0A) { // gyro
         s.gx = 500.0f * rx / 28571.0f;
         s.gy = 500.0f * ry / 28571.0f;
         s.gz = 500.0f * rz / 28571.0f;
@@ -150,5 +123,3 @@ std::vector<ImuSample> ImuDeviceSession::drain_samples() {
     buffer_.clear();
     return out;
 }
-
-#endif
