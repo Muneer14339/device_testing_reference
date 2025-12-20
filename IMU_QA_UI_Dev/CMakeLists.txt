@@ -17,6 +17,6 @@ target_link_libraries(recoil_tracker PRIVATE simpleble::simpleble simpleble::sim
 # Extra deps only on real Linux (BlueZ / dbus / pthread)
 if(UNIX AND NOT APPLE)
     find_package(Threads REQUIRED)
-    target_link_libraries(recoil_tracker PRIVATE simpleble::simpleble simpleble::simpleble-c)
+    target_link_libraries(recoil_tracker PRIVATE dbus-1 Threads::Threads)
 endif()
 

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <thread>   // ← needed for std::this_thread::sleep_for
 #include <cmath>    // for sqrt if you use it
+#include <algorithm> // for std::transform
 
 ImuQaManager::ImuQaManager(const ImuQaConfig& cfg) : cfg_(cfg) {}
 
@@ -18,23 +19,42 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
     std::cout << "Using adapter: " << adapter.identifier()
               << " (" << adapter.address() << ")\n";
 
+    // List of your device addresses (can stay uppercase, we normalize below)
+    std::vector<std::string> target_addresses = {
+        "C6:22:D5:9E:0C:53",
+        "D8:6C:8A:A8:38:DE",
+        "F1:F2:2C:21:47:89"
+    };
+
+    // Convert target addresses to lowercase for comparison
+    for (auto& addr : target_addresses) {
+        std::transform(addr.begin(), addr.end(), addr.begin(), ::tolower);
+    }
+
     std::vector<SimpleBLE::Peripheral> found;
 
     adapter.set_callback_on_scan_found([&](SimpleBLE::Peripheral p) {
-        std::string name = p.identifier();
-        if (name.find("GMSync") == std::string::npos) return;
+        std::string addr = p.address();
+        std::transform(addr.begin(), addr.end(), addr.begin(), ::tolower);
+
+        std::cout << "Scan found: " << p.identifier() << " [" << addr << "]\n";
+
+        // Check if this address is in our target list
+        if (std::find(target_addresses.begin(), target_addresses.end(), addr) == target_addresses.end()) {
+            return; // Not a device we care about
+        }
 
         if ((int)found.size() >= max_devices) return;
         found.push_back(p);
 
-        std::cout << "Found GMSync[" << (found.size()-1)
-                  << "]: " << name << " [" << p.address() << "]\n";
+        std::cout << "Found target device[" << (found.size() - 1)
+                  << "]: " << p.identifier() << " [" << addr << "]\n";
     });
 
     adapter.scan_for(10000); // 10s scan
 
     if (found.empty()) {
-        std::cerr << "No GMSync devices found.\n";
+        std::cerr << "No target devices found.\n";
         return false;
     }
 
@@ -58,6 +78,7 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
     return true;
 }
 
+
 std::vector<ImuQaResult> ImuQaManager::run_test() {
     using clock = std::chrono::steady_clock;
 
@@ -75,27 +96,44 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
     // Per-device sample accumulation
     std::vector<std::vector<ImuSample>> all_samples(sessions_.size());
 
-    while (clock::now() < test_end) {
-        for (size_t i = 0; i < sessions_.size(); ++i) {
-            auto chunk = sessions_[i]->drain_samples();
-            all_samples[i].insert(all_samples[i].end(),
-                                  chunk.begin(), chunk.end());
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // Create a thread for each device to continuously drain samples
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < sessions_.size(); ++i) {
+        threads.emplace_back([&, i]() {
+            while (clock::now() < test_end) {
+                auto chunk = sessions_[i]->drain_samples();
+                if (!chunk.empty()) {
+                    all_samples[i].insert(all_samples[i].end(), chunk.begin(), chunk.end());
+                    std::cout << "\rDevice " << i << " collected packets: " << all_samples[i].size() << std::flush;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(5)); // frequent polling
+            }
+        });
     }
 
-    std::cout << "Test window ended. Evaluating...\n";
+    // Wait for all threads to finish
+    for (auto& th : threads) {
+        if (th.joinable()) th.join();
+    }
+
+    std::cout << "\nTest window ended. Evaluating...\n";
 
     std::vector<ImuQaResult> results;
     for (size_t i = 0; i < sessions_.size(); ++i) {
         auto id = sessions_[i]->id();
         auto res = evaluate_device(id, all_samples[i]);
         results.push_back(res);
+
+        // Print session summary
+        std::cout << "\n=== Device [" << id << "] Session Summary ===\n";
+        std::cout << "Total packets collected: " << all_samples[i].size() << "\n";
+
         sessions_[i]->stop();
     }
 
     return results;
 }
+
 
 ImuQaResult ImuQaManager::evaluate_device(
     const std::string& id,
