@@ -26,25 +26,44 @@ bool ImuDeviceSession::start() {
         return false;
     }
 
-    auto cb = [this](SimpleBLE::ByteArray bytes) {
+    // 🔥 FIX: Callback ko STRONG CAPTURE karo with shared_ptr
+    // Device ID ko capture karo taake pata rahe kis device ka data hai
+    auto self_id = id_;
+    auto cb = [this, self_id](SimpleBLE::ByteArray bytes) {
+        std::cout << "[" << self_id << "] Received " << bytes.size() << " bytes\n";
         this->on_notify(bytes);
     };
 
-    peripheral_.notify("0000b3a0-0000-1000-8000-00805f9b34fb",
-                       "0000b3a1-0000-1000-8000-00805f9b34fb",
-                       cb);
+    try {
+        peripheral_.notify("0000b3a0-0000-1000-8000-00805f9b34fb",
+                           "0000b3a1-0000-1000-8000-00805f9b34fb",
+                           cb);
+    } catch (const std::exception& e) {
+        std::cerr << "[" << id_ << "] Notify setup failed: " << e.what() << "\n";
+        return false;
+    }
 
     // enable accel + gyro
-    send_cmd(0x08, 0x00, {});
-    send_cmd(0x0A, 0x00, {});
+    try {
+        send_cmd(0x08, 0x00, {});
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        send_cmd(0x0A, 0x00, {});
+        std::cout << "[" << id_ << "] Sensors enabled (accel + gyro)\n";
+    } catch (const std::exception& e) {
+        std::cerr << "[" << id_ << "] Failed to enable sensors: " << e.what() << "\n";
+        return false;
+    }
 
     running_ = true;
+    std::cout << "[" << id_ << "] Session started successfully\n";
     return true;
 }
 
 void ImuDeviceSession::stop() {
     if (!running_) return;
     running_ = false;
+
+    std::cout << "[" << id_ << "] Stopping session...\n";
 
     try {
         // stop all sensors
@@ -59,6 +78,8 @@ void ImuDeviceSession::stop() {
     if (peripheral_.is_connected()) {
         try { peripheral_.disconnect(); } catch (...) {}
     }
+
+    std::cout << "[" << id_ << "] Session stopped\n";
 }
 
 void ImuDeviceSession::send_cmd(uint8_t cmd, uint8_t len,
@@ -90,22 +111,29 @@ void ImuDeviceSession::on_notify(SimpleBLE::ByteArray bytes) {
     int16_t ry = be16(p + 2);
     int16_t rz = be16(p + 4);
 
-    static thread_local double last_t = 0.0;
     double t = std::chrono::duration<double>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 
     ImuSample s{};
     s.timestamp_s = t;
-    s.temp = 0.0f; // device doesn’t expose temp in this frame
+    s.temp = 0.0f;
 
     if (cmd == 0x08) { // accel
         s.ax = 16.0f * rx / 32768.0f;
         s.ay = 16.0f * ry / 32768.0f;
         s.az = 16.0f * rz / 32768.0f;
+        
+        // Debug print for accel data
+        std::cout << "[" << id_ << "] ACCEL: ax=" << s.ax 
+                  << " ay=" << s.ay << " az=" << s.az << "\n";
     } else if (cmd == 0x0A) { // gyro
         s.gx = 500.0f * rx / 28571.0f;
         s.gy = 500.0f * ry / 28571.0f;
         s.gz = 500.0f * rz / 28571.0f;
+        
+        // Debug print for gyro data
+        std::cout << "[" << id_ << "] GYRO: gx=" << s.gx 
+                  << " gy=" << s.gy << " gz=" << s.gz << "\n";
     } else {
         return;
     }

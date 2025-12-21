@@ -2,9 +2,9 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <thread>   // ← needed for std::this_thread::sleep_for
-#include <cmath>    // for sqrt if you use it
-#include <algorithm> // for std::transform
+#include <thread>
+#include <cmath>
+#include <algorithm>
 
 ImuQaManager::ImuQaManager(const ImuQaConfig& cfg) : cfg_(cfg) {}
 
@@ -32,6 +32,7 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
     }
 
     std::vector<SimpleBLE::Peripheral> found;
+    std::mutex found_mutex;  // 🔥 Thread-safe access
 
     adapter.set_callback_on_scan_found([&](SimpleBLE::Peripheral p) {
         std::string addr = p.address();
@@ -44,36 +45,92 @@ bool ImuQaManager::discover_and_connect(int max_devices) {
             return; // Not a device we care about
         }
 
-        if ((int)found.size() >= max_devices) return;
-        found.push_back(p);
+        std::lock_guard<std::mutex> lock(found_mutex);
+        
+        // Check if already added (avoid duplicates)
+        for (auto& existing : found) {  // 🔥 Remove 'const' to call non-const address()
+            std::string existing_addr = existing.address();
+            std::transform(existing_addr.begin(), existing_addr.end(), existing_addr.begin(), ::tolower);
+            if (existing_addr == addr) {
+                std::cout << "  [SKIP] Device already found: " << addr << "\n";
+                return;
+            }
+        }
 
-        std::cout << "Found target device[" << (found.size() - 1)
+        if ((int)found.size() >= max_devices) return;
+        
+        found.push_back(p);
+        std::cout << "✅ Found target device[" << found.size()
                   << "]: " << p.identifier() << " [" << addr << "]\n";
     });
 
-    adapter.scan_for(10000); // 10s scan
+    // 🔥 FIX: Scan multiple times until we find minimum 2 devices
+    const int MIN_DEVICES = 2;
+    const int MAX_SCAN_ATTEMPTS = 5;
+    const int SCAN_DURATION_MS = 10000;  // 10 seconds per scan
+    
+    int scan_attempt = 0;
+    
+    while (scan_attempt < MAX_SCAN_ATTEMPTS) {
+        std::cout << "\n🔍 Scan attempt " << (scan_attempt + 1) 
+                  << " (need " << MIN_DEVICES << " devices)...\n";
+        
+        adapter.scan_for(SCAN_DURATION_MS);
+        
+        std::lock_guard<std::mutex> lock(found_mutex);
+        std::cout << "Found " << found.size() << " device(s) so far.\n";
+        
+        if ((int)found.size() >= MIN_DEVICES) {
+            std::cout << "✅ Minimum " << MIN_DEVICES << " devices found!\n";
+            break;
+        }
+        
+        scan_attempt++;
+        
+        if (scan_attempt < MAX_SCAN_ATTEMPTS) {
+            std::cout << "⚠️  Only " << found.size() << " device(s) found. Scanning again...\n";
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+    }
 
-    if (found.empty()) {
-        std::cerr << "No target devices found.\n";
+    if ((int)found.size() < MIN_DEVICES) {
+        std::cerr << "❌ ERROR: Could not find minimum " << MIN_DEVICES 
+                  << " devices after " << MAX_SCAN_ATTEMPTS << " scan attempts.\n";
+        std::cerr << "Only found: " << found.size() << " device(s).\n";
         return false;
     }
 
-    for (auto& p : found) {
+    std::cout << "\n📡 Connecting to " << found.size() << " devices...\n";
+
+    // 🔥 FIX: Connect to ALL devices with delay between connections
+    for (size_t i = 0; i < found.size(); i++) {
+        auto& p = found[i];
         auto id = p.address();
+        
+        std::cout << "\nConnecting to device " << (i + 1) << "/" << found.size() 
+                  << ": " << id << "...\n";
+        
         auto session = std::make_unique<ImuDeviceSession>(p, id);
         if (!session->start()) {
-            std::cerr << "[" << id << "] start() failed, skipping.\n";
+            std::cerr << "[" << id << "] ❌ start() failed, skipping.\n";
             continue;
         }
+        
         sessions_.push_back(std::move(session));
+        std::cout << "[" << id << "] ✅ Connected and started\n";
+        
+        // Small delay between device connections
+        if (i < found.size() - 1) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
     }
 
     if (sessions_.empty()) {
-        std::cerr << "No sessions started.\n";
+        std::cerr << "❌ No sessions started.\n";
         return false;
     }
 
-    std::cout << "Started " << sessions_.size()
+    std::cout << "\n✅ Successfully started " << sessions_.size()
               << " device sessions.\n";
     return true;
 }
@@ -86,36 +143,44 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
     auto settle_end = t0 + std::chrono::duration<double>(cfg_.settle_seconds);
     auto test_end   = settle_end + std::chrono::duration<double>(cfg_.test_seconds);
 
-    std::cout << "Settling for " << cfg_.settle_seconds << "s...\n";
+    std::cout << "\n⏱️  Settling for " << cfg_.settle_seconds << "s...\n";
     while (clock::now() < settle_end) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    std::cout << "Collecting samples for " << cfg_.test_seconds << "s...\n";
+    std::cout << "📊 Collecting samples for " << cfg_.test_seconds << "s...\n\n";
 
     // Per-device sample accumulation
     std::vector<std::vector<ImuSample>> all_samples(sessions_.size());
 
+    auto last_print = clock::now();
+    
     while (clock::now() < test_end) {
+        // 🔥 FIX: Poll ALL devices in parallel
         for (size_t i = 0; i < sessions_.size(); ++i) {
-            // Grab all available new samples from this device
             auto chunk = sessions_[i]->drain_samples();
-
-            // Append to accumulated samples (do not overwrite)
+            
             if (!chunk.empty()) {
                 all_samples[i].insert(all_samples[i].end(), chunk.begin(), chunk.end());
             }
-
-            // Show progress per device
-            std::cout << "\rCollected packets for device " << i 
-                      << ": " << all_samples[i].size() << std::flush;
         }
 
-        // Poll frequently to avoid losing packets
+        // Print progress every 2 seconds
+        auto now = clock::now();
+        if (std::chrono::duration<double>(now - last_print).count() >= 2.0) {
+            std::cout << "\n--- Progress Update ---\n";
+            for (size_t i = 0; i < sessions_.size(); ++i) {
+                std::cout << "Device " << i << " [" << sessions_[i]->id() << "]: "
+                          << all_samples[i].size() << " samples\n";
+            }
+            last_print = now;
+        }
+
+        // Poll frequently to avoid losing packets (10ms)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    std::cout << "\nTest window ended. Evaluating...\n";
+    std::cout << "\n✅ Test window ended. Evaluating...\n";
 
     // Evaluate results for all devices
     std::vector<ImuQaResult> results;
@@ -124,19 +189,18 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
         auto res = evaluate_device(id, all_samples[i]);
         results.push_back(res);
 
-        // Print session details
-        std::cout << "\n=== Device [" << id << "] Session Summary ===\n";
-        std::cout << "Total packets collected: " << all_samples[i].size() << "\n";
+        // Print session summary
+        std::cout << "\n=== Device [" << id << "] Summary ===\n";
+        std::cout << "Total samples: " << all_samples[i].size() << "\n";
 
-        int packet_num = 0;
-        for (const auto& s : all_samples[i]) {
-            std::cout << "Packet " << packet_num++ << ": "
-                      << "ax=" << s.ax << ", "
-                      << "ay=" << s.ay << ", "
-                      << "az=" << s.az << ", "
-                      << "gx=" << s.gx << ", "
-                      << "gy=" << s.gy << ", "
-                      << "gz=" << s.gz << "\n";
+        if (!all_samples[i].empty()) {
+            std::cout << "First 5 samples:\n";
+            for (size_t j = 0; j < std::min(size_t(5), all_samples[i].size()); j++) {
+                const auto& s = all_samples[i][j];
+                std::cout << "  [" << j << "] "
+                          << "ax=" << s.ax << ", ay=" << s.ay << ", az=" << s.az << ", "
+                          << "gx=" << s.gx << ", gy=" << s.gy << ", gz=" << s.gz << "\n";
+            }
         }
 
         sessions_[i]->stop();
@@ -153,7 +217,6 @@ ImuQaResult ImuQaManager::evaluate_device(
     res.device_id = id;
 
     if (samples.empty()) {
-        // If we have no data at all, treat as FAIL (or whatever you want)
         res.status            = QaStatus::FAIL;
         res.mac_deg           = 0.0;
         res.noise_sigma       = 0.0;
@@ -163,13 +226,11 @@ ImuQaResult ImuQaManager::evaluate_device(
         return res;
     }
 
-    // --- Very simple placeholder metrics ---
-    // Example: average gravity magnitude from accel samples
+    // Calculate average gravity magnitude
     double sum_g = 0.0;
     int count_g  = 0;
 
     for (const auto& s : samples) {
-        // if accel is populated (you may refine this condition)
         if (s.ax != 0.0f || s.ay != 0.0f || s.az != 0.0f) {
             double mag = std::sqrt(
                 double(s.ax) * s.ax +
@@ -187,8 +248,7 @@ ImuQaResult ImuQaManager::evaluate_device(
         res.gravity_mean_g = 0.0;
     }
 
-    // For now, just fill defaults and mark as PASS.
-    // Later we’ll plug in the real MAC / noise / drift logic.
+    // Placeholder values
     res.mac_deg           = 0.0;
     res.noise_sigma       = 0.0;
     res.drift_deg_per_min = 0.0;
