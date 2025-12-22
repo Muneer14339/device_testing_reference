@@ -1,22 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\recoil_tracker.cpp">
+    <ClCompile Include="C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\recoil_tracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\imu_device_session.cpp">
+    <ClCompile Include="C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\imu_device_session.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\imu_qa_manager.cpp">
+    <ClCompile Include="C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\imu_qa_manager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{770BF2FB-AF3A-30F0-81BF-B0F0006B72CD}</UniqueIdentifier>
+      <UniqueIdentifier>{E9271A77-0A0E-308D-A8F1-652E632C92B1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

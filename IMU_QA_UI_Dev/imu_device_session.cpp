@@ -30,7 +30,7 @@ bool ImuDeviceSession::start() {
     // Device ID ko capture karo taake pata rahe kis device ka data hai
     auto self_id = id_;
     auto cb = [this, self_id](SimpleBLE::ByteArray bytes) {
-        std::cout << "[" << self_id << "] Received " << bytes.size() << " bytes\n";
+        // std::cout << "[" << self_id << "] Received " << bytes.size() << " bytes\n";
         this->on_notify(bytes);
     };
 
@@ -123,17 +123,17 @@ void ImuDeviceSession::on_notify(SimpleBLE::ByteArray bytes) {
         s.ay = 16.0f * ry / 32768.0f;
         s.az = 16.0f * rz / 32768.0f;
         
-        // Debug print for accel data
-        std::cout << "[" << id_ << "] ACCEL: ax=" << s.ax 
-                  << " ay=" << s.ay << " az=" << s.az << "\n";
+        // // Debug print for accel data
+        // std::cout << "[" << id_ << "] ACCEL: ax=" << s.ax 
+        //           << " ay=" << s.ay << " az=" << s.az << "\n";
     } else if (cmd == 0x0A) { // gyro
         s.gx = 500.0f * rx / 28571.0f;
         s.gy = 500.0f * ry / 28571.0f;
         s.gz = 500.0f * rz / 28571.0f;
         
-        // Debug print for gyro data
-        std::cout << "[" << id_ << "] GYRO: gx=" << s.gx 
-                  << " gy=" << s.gy << " gz=" << s.gz << "\n";
+        // // Debug print for gyro data
+        // std::cout << "[" << id_ << "] GYRO: gx=" << s.gx 
+        //           << " gy=" << s.gy << " gz=" << s.gz << "\n";
     } else {
         return;
     }

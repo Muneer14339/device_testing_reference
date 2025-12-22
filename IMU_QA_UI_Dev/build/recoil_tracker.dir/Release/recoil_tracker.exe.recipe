@@ -2,10 +2,10 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\build\x64\Release\ZERO_CHECK</FullPath>
+      <FullPath>C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\build\x64\Release\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>C:\Users\GM\Desktop\new\newData\devices_testing\IMU_QA_UI_Dev\build\Release\recoil_tracker.exe</FullPath>
+      <FullPath>C:\Users\GM\Documents\newData\devices_testing\IMU_QA_UI_Dev\build\Release\recoil_tracker.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

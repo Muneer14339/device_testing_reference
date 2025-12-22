@@ -168,11 +168,11 @@ std::vector<ImuQaResult> ImuQaManager::run_test() {
         // Print progress every 2 seconds
         auto now = clock::now();
         if (std::chrono::duration<double>(now - last_print).count() >= 2.0) {
-            std::cout << "\n--- Progress Update ---\n";
-            for (size_t i = 0; i < sessions_.size(); ++i) {
-                std::cout << "Device " << i << " [" << sessions_[i]->id() << "]: "
-                          << all_samples[i].size() << " samples\n";
-            }
+            // std::cout << "\n--- Progress Update ---\n";
+            // for (size_t i = 0; i < sessions_.size(); ++i) {
+            //     std::cout << "Device " << i << " [" << sessions_[i]->id() << "]: "
+            //               << all_samples[i].size() << " samples\n";
+            // }
             last_print = now;
         }
 
